@@ -1,0 +1,107 @@
+---
+title: "Using SPRING with R"
+output: html_notebook
+---
+
+Load necessary pacakges and functions 
+
+```{r}
+library(irlba)
+library(reticulate)
+use_condaenv("anaconda2")
+
+pkl <- import("pickle")
+np <- import("numpy")
+pd <- import("pandas")
+
+source_python("preprocessing_python.py")
+```
+
+Import expression matrix; rows are cells and columns are genes
+### ****** Make sure E.npy is unzipped *************
+
+```{r}
+print('Loading expression matrix')
+E <- np$load('example_inputs/python_E.npy')
+dim(E)
+```
+
+Filter out cells with fewer than 1000 UMIs
+
+```{r}
+print('Filtering cells')
+Cell_Filter_Struct <- filter_cells(E,1000)
+
+E <- Cell_Filter_Struct[[1]]
+cell_filter <- Cell_Filter_Struct[[2]]
+rm(Cell_Filter_Struct)
+```
+
+Normalize gene expression data
+Only use genes that make up <
+
+```{r}
+print('Row-normalizing')
+E <- row_normalize(E)
+```
+
+Filter genes with mean expression < 0.1 and fano factor < 3
+
+```{r}
+print('Filtering genes')
+Gene_Filter_Struct <- filter_genes(E,0.1,3)
+gene_filter <- Gene_Filter_Struct[[2]]
+rm(Gene_Filter_Struct)
+```
+
+Z-score the gene-filtered expression matrix and do PCA with 20 pcs
+
+```{r}
+print('Zscoring and PCA')
+ZS <- Zscore(E[,gene_filter])
+
+# Epca <- get_PCA(ZS, 20)
+
+Epca <- prcomp_irlba(x = ZS, n = 20, retx = TRUE)$x
+```
+
+Get euclidean distances in the PC space
+
+```{r}
+print('Getting distance matrix')
+D <- get_distance_matrix(Epca)
+```
+
+load additional data (gene_list, cell_groupings, custom_colors)
+gene_list is a list of genes with length E.shape[1]
+cell_groupings is a dict of the form: { <grouping_name> : [<cell1_label>, <cell2_label>,...] }
+a "grouping" could be the sample id, cluster label, or any other categorical variable
+custom_colors is a dict of the form { <color_track_name> : [<cell1_value>, <cell2_value>,...] }
+a "custom color" is any continuous variable that you would like to use for coloring cels. 
+
+```{r}
+PK <- py_load_object(filename = 'example_inputs/python_data.p', pickle = "pickle")
+
+gene_list <- PK[[1]]
+cell_groupings <- PK[[2]]
+custom_colors <-  PK[[3]]
+
+names(gene_list) <- 1:length(gene_list)
+```
+
+save a SPRING plots with k=5 edges per node in the directory "datasets/frog_python/"
+coarse graining can also be performed using the optional coarse_grain_X parameter
+     
+     
+     
+```{r}
+print('Saving SPRING plot')
+save_spring_dir(E,D,5,gene_list,'datasets/frog_python',
+                cell_groupings=cell_groupings, custom_colors=custom_colors,
+                 coarse_grain_X=1)
+```
+
+
+
+
+
