@@ -116,7 +116,7 @@ def get_knn_edges(dmat, k):
 	''' 
 	edge_dict = {}
 	for i in range(dmat.shape[0]):
-		for j in np.nonzero(dmat[i,:] <= sorted(dmat[i,:])[int(k)])[0]:
+		for j in np.nonzero(dmat[i,:] <= sorted(dmat[i,:])[k])[0]:
 			if i != j:
 				ii,jj = tuple(sorted([i,j]))
 				edge_dict[(ii,jj)] = dmat[i,j]
